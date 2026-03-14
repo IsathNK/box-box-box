@@ -5,12 +5,14 @@ import sys
 # ---------------------------------------------------------
 # CURRENT BEST PHYSICS PARAMETERS (37/100)
 # ---------------------------------------------------------
+
+
 PARAMS = {
-    'SOFT':   {'offset': 2.949322, 'cliff': 10, 'deg': 0.393913},
-    'MEDIUM': {'offset': 3.928766, 'cliff': 20, 'deg': 0.200049},
-    'HARD':   {'offset': 4.726468, 'cliff': 30, 'deg': 0.101575},
-    'temp_coef': 0.112732
-}
+      'SOFT':   {'offset': 2.959679, 'cliff': 10, 'deg': 0.393913},
+      'MEDIUM': {'offset': 3.928766, 'cliff': 20, 'deg': 0.200049},
+      'HARD':   {'offset': 4.726468, 'cliff': 30, 'deg': 0.101575},
+      'temp_coef': 0.112732
+  }
 
 def calc_stint_time(tire_name, laps, base_time, temp):
     if laps <= 0: 
