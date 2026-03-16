@@ -9,10 +9,12 @@ import sys
 
 PARAMS = {
       'SOFT':   {'offset': 2.959679, 'cliff': 10, 'deg': 0.393913},
-      'MEDIUM': {'offset': 3.928766, 'cliff': 20, 'deg': 0.200049},
+      'MEDIUM': {'offset': 3.9286983231419623, 'cliff': 20, 'deg': 0.2008786040520899},
       'HARD':   {'offset': 4.726468, 'cliff': 30, 'deg': 0.101575},
-      'temp_coef': 0.112732
-  }
+      'temp_coef': 0.11209581339306575
+  } 
+
+
 
 def calc_stint_time(tire_name, laps, base_time, temp):
     if laps <= 0: 
@@ -36,6 +38,8 @@ def calc_stint_time(tire_name, laps, base_time, temp):
         total_stint_time += actual_deg * (n * (n + 1)) / 2.0
         
     return total_stint_time
+
+
 
 def main():
     # Read STDIN
@@ -78,7 +82,7 @@ def main():
         results.append((total, driver))
     
     # Sort by lowest total time, using driver_id as a tie-breaker
-    results.sort(key=lambda x: (round(x[0], 5), x[1]))
+    results.sort(key=lambda x: (x[0], x[1]))    
     
     output = {
         'race_id': test_case['race_id'], 
