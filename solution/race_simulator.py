@@ -1,130 +1,59 @@
 #!/usr/bin/env python3
 import json
 import sys
-
-
-
-'''[3312] NEW BEST! Score: 47% | Rank Error: 318
-{
-  "SOFT": {
-    "offset": 2.9593164422413505,
-    "cliff": 10,
-    "deg": 0.39548617394356034
-  },
-  "MEDIUM": {
-    "offset": 3.9286983231419623,
-    "cliff": 20,
-    "deg": 0.2008786040520899
-  },
-  "HARD": {
-    "offset": 4.729168354772088,
-    "cliff": 30,
-    "deg": 0.10431713591584618
-  },
-  "temp_coef": 0.11209581339306575
-}'''
-
-
-# Tuned Parameters Using Differential Evolution
-
-
-
-PARAMS = {  "SOFT": {
-    "offset": 2.9593164422413505,
-    "cliff": 10,
-    "deg": 0.39548617394356034
-  },
-  "MEDIUM": {
-    "offset": 3.9286983231419623,
-    "cliff": 20,
-    "deg": 0.2008786040520899
-  },
-  "HARD": {
-    "offset": 4.729168354772088,
-    "cliff": 30,
-    "deg": 0.10431713591584618
-  },
-  "temp_coef": 0.11209581339306575
+# Tried a One More Physics Based Constant to Achieve 56%
+# Tuning the parameters currently 
+# ==============================================================
+# PHYSICS-EVOLUTION PARAMETERS (56% + Rank Error 220)
+# ==============================================================
+PARAMS = {
+    'SOFT': {
+        'offset': 2.958293,
+        'cliff': 10,
+        'deg': 0.393901
+    },
+    'MEDIUM': {
+        'offset': 3.9262504324101357,
+        'cliff': 20,
+        'deg': 0.200878
+    },
+    'HARD': {
+        'offset': 4.726314,
+        'cliff': 30,
+        'deg': 0.10318686089930251
+    },
+    'temp_coef': 0.112095,
+    'evol': 0.00010257806706596489  # The Fuel Burn constant we uncovered
 }
 
-
-def simulate_race(config, strategies):
-    """Simulate race and return finishing order."""
-    base = config['base_lap_time']
-    temp = config['track_temp']
-    pit_time = config['pit_lane_time']
-    
-    results = []
-    
-    for pos, strategy in strategies.items():
-        driver = strategy['driver_id']
-        pit_stops = sorted(strategy.get('pit_stops', []), key=lambda x: x['lap'])
-        
-        total = 0.0
-        curr_lap = 1
-        curr_tire = strategy['starting_tire']
-        
-        for stop in pit_stops:
-            stint_laps = stop['lap'] - curr_lap + 1
-            total += calc_stint_time(curr_tire, stint_laps, base, temp)
-            total += pit_time
-            curr_lap = stop['lap'] + 1
-            curr_tire = stop['to_tire']
-        
-        final_laps = config['total_laps'] - curr_lap + 1
-        total += calc_stint_time(curr_tire, final_laps, base, temp)
-        
-        results.append((driver, total))
-    
-    results.sort(key=lambda x: x[1])
-    
-    return [r[0] for r in results] 
-
-
-
-def calc_stint_time(tire_name, laps, base_time, temp):
-    """Calculate stint time using arithmetic progression degradation after cliff."""
-    if laps <= 0:
-        return 0.0
-
-    tire = PARAMS[tire_name]
-
-    # Base speed for this tire compound
-    lap_speed = base_time + tire["offset"]
-
-    # Temperature impact on degradation
-    actual_deg = tire["deg"] * (1.0 + temp * PARAMS["temp_coef"])
-
-    # Base time for all laps in the stint
-    total_stint_time = laps * lap_speed
-
-    # Add degradation penalty only for laps beyond the cliff
-    if laps > tire["cliff"]:
-        n = laps - tire["cliff"]
-        # Arithmetic progression: sum of 1 + 2 + 3 ... n
-        total_stint_time += actual_deg * (n * (n + 1)) / 2.0
-
-    return total_stint_time
-
-
-def calc_last_lap_time(tire_name, laps, base_time, temp):
-    """Return the time of the final lap in a stint.
-    Used as a deterministic tie-breaker when total times are equal.
+def calc_stint_time(tire_name, laps, base_time, temp, start_lap):
+    """
+    Iterates through each lap to account for the linear fuel burn (evol).
     """
     if laps <= 0:
-        return 0.0
-
+        return 0.0, 0.0
+        
     tire = PARAMS[tire_name]
-    lap_speed = base_time + tire["offset"]
     actual_deg = tire["deg"] * (1.0 + temp * PARAMS["temp_coef"])
-
-    # Degradation kicks in after the cliff lap
-    if laps > tire["cliff"]:
-        lap_speed += actual_deg * (laps - tire["cliff"])
-
-    return lap_speed
-
-
+    total_stint_time = 0.0
+    last_lap_time = 0.0
+    
+    for i in range(laps):
+        # Current absolute lap in the race (1, 2, 3...)
+        current_abs_lap = start_lap + i
+        
+        # Physics: Base + Offset - (Fuel Burn * Current Lap)
+        lap_time = base_time + tire["offset"] - (PARAMS['evol'] * current_abs_lap)
+        
+        # Add degradation if beyond the cliff
+        laps_on_this_tire = i + 1
+        if laps_on_this_tire > tire["cliff"]:
+            lap_time += (laps_on_this_tire - tire["cliff"]) * actual_deg
+            
+        total_stint_time += lap_time
+        last_lap_time = lap_time
+        
+    return total_stint_time, last_lap_time
 
 def main():
     # Read STDIN
@@ -144,35 +73,38 @@ def main():
 
     results = []
 
-    for pos, strategy in test_case['strategies'].items():
+    for strategy in test_case['strategies'].values():
         driver = strategy['driver_id']
-        grid_pos = int(pos.replace('pos', ''))
-        pit_stops = sorted(strategy.get('pit_stops', []), key=lambda x: x['lap'])
+        pit_stops = sorted(strategy.get('pit_stops', []), key=lambda x: int(x['lap']))
 
         total = 0.0
         curr_lap = 1
         curr_tire = strategy['starting_tire']
-        last_lap_time = 0.0
+        final_lap_val = 0.0
 
-        # Calculate time for each stint between pit stops
+        # Calculate each stint + pit stop
         for stop in pit_stops:
             stint_laps = stop['lap'] - curr_lap + 1
-            total += calc_stint_time(curr_tire, stint_laps, base, temp)
-            last_lap_time = calc_last_lap_time(curr_tire, stint_laps, base, temp)
+            s_time, l_lap = calc_stint_time(curr_tire, stint_laps, base, temp, curr_lap)
+            
+            total += s_time
             total += pit_time
+            
+            final_lap_val = l_lap
             curr_lap = stop['lap'] + 1
             curr_tire = stop['to_tire']
 
-        # Calculate final stint to the end of the race
+        # Final stint to the flag
         final_laps = config['total_laps'] - curr_lap + 1
-        total += calc_stint_time(curr_tire, final_laps, base, temp)
-        last_lap_time = calc_last_lap_time(curr_tire, final_laps, base, temp)
+        s_time, l_lap = calc_stint_time(curr_tire, final_laps, base, temp, curr_lap)
+        
+        total += s_time
+        final_lap_val = l_lap
 
-        # Break ties deterministically when total times are identical.
-        # Use last lap time as a tie-breaker (faster last lap wins), then driver id.
-        results.append((total, last_lap_time, driver))
+        # Store for sorting: (Total Time, Last Lap Tie-Breaker, Driver ID)
+        results.append((total, final_lap_val, driver))
 
-    # Sort by total time, then by last lap time (faster last lap wins), then by driver id
+    # Sort by total time, then last lap time, then driver ID
     results.sort(key=lambda x: (x[0], x[1], x[2]))
 
     output = {
