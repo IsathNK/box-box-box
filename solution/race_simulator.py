@@ -4,28 +4,27 @@ import sys
 # Tried a One More Physics Based Constant to Achieve 56%
 # Tuning the parameters currently 
 # ==============================================================
-# PHYSICS-EVOLUTION PARAMETERS (56% + Rank Error 220)
+# 60% MILESTONE PARAMETERS (Rank Error: 202)
 # ==============================================================
 PARAMS = {
-    'SOFT': {
-        'offset': 2.958293,
-        'cliff': 10,
-        'deg': 0.393901
-    },
-    'MEDIUM': {
-        'offset': 3.9262504324101357,
-        'cliff': 20,
-        'deg': 0.200878
-    },
-    'HARD': {
-        'offset': 4.726314,
-        'cliff': 30,
-        'deg': 0.10318686089930251
-    },
-    'temp_coef': 0.112095,
-    'evol': 0.00010257806706596489  # The Fuel Burn constant we uncovered
+    "SOFT": {
+        "offset": 2.958962002059359, 
+        "cliff": 10, 
+        "deg": 0.3938052242423563
+    }, 
+    "MEDIUM": {
+        "offset": 3.9262504324101357, 
+        "cliff": 20, 
+        "deg": 0.2005977212786465
+    }, 
+    "HARD": {
+        "offset": 4.7244861975727845, 
+        "cliff": 30, 
+        "deg": 0.10319025698674321
+    }, 
+    "temp_coef": 0.112095, 
+    "evol": 0.00010257806706596489
 }
-
 def calc_stint_time(tire_name, laps, base_time, temp, start_lap):
     """
     Iterates through each lap to account for the linear fuel burn (evol).
